@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type Candle = {
   time: string;
@@ -55,6 +55,7 @@ function App() {
   const [overlayPosition, setOverlayPosition] = useState({ x: 30, y: 30 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [countdown, setCountdown] = useState(75);
   const [tradePlan, setTradePlan] = useState<TradePlan>({
     side: 'Buy',
     entry: Number(lastCandle.close.toFixed(2)),
@@ -62,6 +63,14 @@ function App() {
     target: Number((lastCandle.close * 1.02).toFixed(2)),
     notes: 'Manual setup awaiting confirmation.'
   });
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCountdown((current) => (current > 0 ? current - 1 : 75));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   const minValue = Math.min(...candles.map((candle) => candle.low));
   const maxValue = Math.max(...candles.map((candle) => candle.high));
@@ -98,6 +107,9 @@ function App() {
   };
 
   const pricePips = Math.abs(lastCandle.close - tradePlan.entry).toFixed(2);
+  const formattedCountdown = `${String(Math.floor(countdown / 60)).padStart(2, '0')}:${String(
+    countdown % 60
+  ).padStart(2, '0')}`;
 
   return (
     <div className="app-shell">
@@ -201,6 +213,11 @@ function App() {
             <label>Price</label>
             <div className="signal-readout neutral">{lastCandle.close.toFixed(2)}</div>
           </div>
+        </div>
+
+        <div className="countdown-box" aria-live="polite">
+          <span>Next candle</span>
+          <strong>{formattedCountdown}</strong>
         </div>
 
         <div className="trade-form">
