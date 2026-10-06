@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Candle = {
   time: string;
@@ -51,11 +51,12 @@ function App() {
   const candles = useMemo(() => generateCandles(80), []);
   const lastCandle = candles[candles.length - 1];
   const signal = lastCandle.close >= lastCandle.open ? 'Bullish' : 'Bearish';
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const [overlayPosition, setOverlayPosition] = useState({ x: 30, y: 30 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [countdown, setCountdown] = useState(75);
+  const [countdown, setCountdown] = useState(30);
   const [tradePlan, setTradePlan] = useState<TradePlan>({
     side: 'Buy',
     entry: Number(lastCandle.close.toFixed(2)),
@@ -64,9 +65,41 @@ function App() {
     notes: 'Manual setup awaiting confirmation.'
   });
 
+  const playAlert = () => {
+    const AudioCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+    if (!AudioCtor) return;
+
+    const context = audioContextRef.current ?? new AudioCtor();
+    audioContextRef.current = context;
+
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+
+    oscillator.type = 'triangle';
+    oscillator.frequency.value = 880;
+    gain.gain.value = 0.0001;
+
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+
+    const now = context.currentTime;
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+    oscillator.start(now);
+    oscillator.stop(now + 0.25);
+  };
+
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setCountdown((current) => (current > 0 ? current - 1 : 75));
+      setCountdown((current) => {
+        if (current <= 1) {
+          playAlert();
+          return 30;
+        }
+
+        return current - 1;
+      });
     }, 1000);
 
     return () => window.clearInterval(timer);
